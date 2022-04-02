@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context=".NowPlayingBottomFragment">
+
+   <RelativeLayout
+       android:id="@+id/card_bottom_player"
+       android:layout_width="match_parent"
+       android:layout_height="wrap_content"
+       android:background="@color/black"
+       android:padding="5dp">
+
+       <ImageView
+           android:id="@+id/bottom_album_art"
+           android:layout_width="60dp"
+           android:layout_height="60dp"
+           android:scaleType="centerCrop"
+           android:src="@drawable/music" />
+
+       <ImageView
+           android:id="@+id/skip_next_bottom"
+           android:layout_width="30dp"
+           android:layout_height="30dp"
+           android:src="@drawable/ic_baseline_skip_next_24"
+           android:layout_alignParentEnd="true"
+           android:layout_centerVertical="true"
+           android:layout_marginEnd="10dp"/>
+
+       <com.google.android.material.floatingactionbutton.FloatingActionButton
+           android:id="@+id/play_pause_btn_mini_bottom"
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:layout_centerVertical="true"
+           android:layout_marginEnd="10dp"
+           android:layout_toStartOf="@id/skip_next_bottom"
+           android:backgroundTint="@color/white"
+           android:src="@drawable/ic_baseline_pause_24"
+           app:fabSize="mini" />
+
+       <ImageView
+           android:id="@+id/skip_prev_bottom"
+           android:layout_width="30dp"
+           android:layout_height="30dp"
+           android:src="@drawable/ic_baseline_skip_previous_24"
+           android:layout_toStartOf="@id/play_pause_btn_mini_bottom"
+           android:layout_centerVertical="true"
+           android:layout_marginEnd="10dp"/>
+
+       <TextView
+           android:id="@+id/song_name_mini_player"
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:layout_marginStart="15dp"
+           android:layout_marginTop="5dp"
+           android:layout_toEndOf="@id/bottom_album_art"
+           android:layout_toStartOf="@id/skip_prev_bottom"
+           android:maxLines="1"
+           android:text="Song name"
+           android:textColor="@color/white"
+           android:textSize="18sp"
+           android:textStyle="bold" />
+
+       <TextView
+           android:id="@+id/song_artist_mini_player"
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:layout_below="@id/song_name_mini_player"
+           android:layout_marginStart="15dp"
+           android:layout_marginTop="4dp"
+           android:layout_toStartOf="@id/skip_prev_bottom"
+           android:layout_toEndOf="@id/bottom_album_art"
+           android:maxLines="1"
+           android:text="Arist name"
+           android:textColor="@color/white"
+           android:textSize="15sp" />
+
+   </RelativeLayout>
+</FrameLayout>
