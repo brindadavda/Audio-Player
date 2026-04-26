@@ -60,8 +60,8 @@ class MusicAdapter(
             popupMenu.menuInflater.inflate(R.menu.popup, popupMenu.menu)
             popupMenu.show()
             popupMenu.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    R.id.delete -> deleteFile(position, v)
+                if (item.itemId == R.id.delete) {
+                    deleteFile(position, v)
                 }
                 true
             }
