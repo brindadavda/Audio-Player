@@ -50,6 +50,7 @@ public class NowPlayingBottomFragment extends Fragment implements ServiceConnect
     static FloatingActionButton playpausebtn;
     ActionPlaying actionPlaying;
     MusicService musicService;
+    private boolean isServiceBound = false;
     PlayerActivity playerActivity;
     FragmentNowPlayingBottomBinding  binding ;
 
@@ -265,7 +266,7 @@ public class NowPlayingBottomFragment extends Fragment implements ServiceConnect
                 Intent intent = new Intent(getContext(),MusicService.class);
                 if (getContext() != null)
                 {
-                    getContext().bindService(intent,this, Context.BIND_AUTO_CREATE);
+                    isServiceBound = getContext().bindService(intent,this, Context.BIND_AUTO_CREATE);
                 }
             }
         }
@@ -274,8 +275,9 @@ public class NowPlayingBottomFragment extends Fragment implements ServiceConnect
     @Override
     public void onPause() {
         super.onPause();
-        if (getContext() != null) {
+        if (getContext() != null && isServiceBound) {
             getContext().unbindService(this);
+            isServiceBound = false;
         }
     }
 
@@ -291,12 +293,14 @@ public class NowPlayingBottomFragment extends Fragment implements ServiceConnect
     public void onServiceConnected(ComponentName name, IBinder service) {
         MusicService.MyBinder binder = (MusicService.MyBinder) service;
         musicService = binder.getService();
+        isServiceBound = true;
 
     }
 
     @Override
     public void onServiceDisconnected(ComponentName name) {
         musicService = null;
+        isServiceBound = false;
 
     }
 }
