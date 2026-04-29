@@ -1,206 +1,257 @@
 package com.example.audioplayer
 
 import android.Manifest
-import android.os.Build
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.database.Cursor
+import android.net.Uri
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.audioplayer.model.Song
-import com.example.audioplayer.player.AudioPlayerViewModel
-import com.example.audioplayer.ui.theme.AudioPlayerTheme
+import android.provider.MediaStore
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.FrameLayout
+import android.widget.SearchView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
+import androidx.fragment.app.FragmentPagerAdapter
+import androidx.viewpager.widget.ViewPager
+import com.google.android.material.tabs.TabLayout
+import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity(), SearchView.OnQueryTextListener {
 
-    private val viewModel by viewModels<AudioPlayerViewModel>()
+    private val mySortPref = "SortOrder"
+    private var musicService: MusicService? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        setContentView(R.layout.activity_main)
 
-        setContent {
-            AudioPlayerTheme {
-                AudioPlayerScreen(viewModel = viewModel)
-            }
-        }
-    }
-}
-
-private fun audioPermission(): String {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_AUDIO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AudioPlayerScreen(viewModel: AudioPlayerViewModel = viewModel()) {
-    val state by viewModel.uiState.collectAsState()
-    var hasPermission by remember { mutableStateOf(false) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted -> hasPermission = granted }
-    )
-
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(audioPermission())
-    }
-
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(title = { Text("Audio Player (Compose)") })
-        }
-    ) { padding ->
-        if (!hasPermission) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Storage permission is required to scan your local audio.")
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { permissionLauncher.launch(audioPermission()) }) {
-                    Text("Grant permission")
-                }
-            }
-            return@Scaffold
+        frag_bottom_player = findViewById(R.id.frag_bottom_player)
+        frag_bottom_player?.setOnClickListener {
+            startActivity(Intent(applicationContext, PlayerActivity::class.java))
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 12.dp)
+        permission()
+    }
+
+    private fun permission() {
+        if (ContextCompat.checkSelfPermission(
+                applicationContext,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
         ) {
-            if (state.songs.isEmpty()) {
-                Text(
-                    text = "No local songs were found on this device.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 24.dp)
-                )
-            } else {
-                NowPlayingRow(
-                    song = state.songs.find { it.id == state.selectedSongId },
-                    isPlaying = state.isPlaying,
-                    onTogglePlayback = viewModel::togglePlayback
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyColumn {
-                    items(items = state.songs, key = { it.id }) { song ->
-                        SongItem(
-                            song = song,
-                            isSelected = song.id == state.selectedSongId,
-                            onClick = { viewModel.playSong(song) }
-                        )
-                    }
-                }
-            }
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                REQUEST_CODE
+            )
+        } else {
+            musicFiles = getAllAudio(this)
+            initViewPager()
         }
     }
-}
 
-@Composable
-private fun NowPlayingRow(
-    song: Song?,
-    isPlaying: Boolean,
-    onTogglePlayback: () -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Now Playing", style = MaterialTheme.typography.labelLarge)
-                Text(
-                    text = song?.title ?: "Nothing selected",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = song?.artist ?: "",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            IconButton(onClick = onTogglePlayback, enabled = song != null) {
-                if (isPlaying) {
-                    Icon(Icons.Default.Pause, contentDescription = "Pause")
-                } else {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Play")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SongItem(song: Song, isSelected: Boolean, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(onClick = onClick)
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = song.title,
-                style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "${song.artist} • ${song.album}",
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                musicFiles = getAllAudio(this)
+                initViewPager()
+            } else {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    REQUEST_CODE
+                )
+            }
         }
+    }
+
+    private fun initViewPager() {
+        val viewPager = findViewById<ViewPager>(R.id.viewpager)
+        val tabLayout = findViewById<TabLayout>(R.id.tab_layout1)
+        val adapter = ViewPagerAdapter(supportFragmentManager)
+        adapter.addFragments(SongsFragment(), "Songs")
+        adapter.addFragments(AlbumFragment(), "Albums")
+        viewPager.adapter = adapter
+        tabLayout.setupWithViewPager(viewPager)
+    }
+
+    fun getAllAudio(context: Context): ArrayList<MusicFiles> {
+        val preferences = getSharedPreferences(mySortPref, MODE_PRIVATE)
+        val sortOrder = preferences.getString("sorting", "sortByName")
+        val order = when (sortOrder) {
+            "sortByDate" -> MediaStore.MediaColumns.DATE_ADDED + " ASC"
+            "sortBySize" -> MediaStore.MediaColumns.SIZE + " DESC"
+            else -> MediaStore.MediaColumns.DISPLAY_NAME + " ASC"
+        }
+
+        val duplicate = arrayListOf<String>()
+        albums.clear()
+        val tempArrayList = arrayListOf<MusicFiles>()
+        val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+
+        val projection = arrayOf(
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media._ID
+        )
+
+        val cursor: Cursor? = context.contentResolver.query(uri, projection, null, null, order)
+        cursor?.use {
+            while (it.moveToNext()) {
+                val album = it.getString(0)
+                val title = it.getString(1)
+                val duration = it.getString(2)
+                val path = it.getString(3)
+                val artist = it.getString(4)
+                val id = it.getString(5)
+
+                val musicFile = MusicFiles(path, title, artist, album, duration, id)
+                tempArrayList.add(musicFile)
+                if (!duplicate.contains(album)) {
+                    albums.add(musicFile)
+                    duplicate.add(album)
+                }
+            }
+        }
+
+        return tempArrayList
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.search, menu)
+        val menuItem = menu.findItem(R.id.search_option)
+        val searchView = menuItem.actionView as SearchView
+        searchView.setOnQueryTextListener(this)
+        return super.onCreateOptionsMenu(menu)
+    }
+
+    override fun onQueryTextSubmit(query: String?): Boolean = false
+
+    override fun onQueryTextChange(newText: String): Boolean {
+        val userInput = newText.lowercase(Locale.getDefault())
+        val myFiles = arrayListOf<MusicFiles>()
+
+        musicFiles?.forEach { song ->
+            if (song.title.lowercase(Locale.getDefault()).contains(userInput)) {
+                myFiles.add(song)
+            }
+        }
+        SongsFragment.musicAdapter.updateList(myFiles)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        val editor = getSharedPreferences(mySortPref, MODE_PRIVATE).edit()
+        when (item.itemId) {
+            R.id.sort_by_name -> {
+                editor.putString("sorting", "sortByName")
+                editor.apply()
+                recreate()
+            }
+
+            R.id.sort_by_date -> {
+                editor.putString("sorting", "sortByDate")
+                editor.apply()
+                recreate()
+            }
+
+            R.id.sort_by_size -> {
+                editor.putString("sorting", "sortBySize")
+                editor.apply()
+                recreate()
+            }
+        }
+        return super.onOptionsItemSelected(item)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val preferences = getSharedPreferences(MUSIC_LAST_PLAYED, MODE_PRIVATE)
+        val path = preferences.getString(MUSIC_FILE, null)
+        val artist = preferences.getString(ARTIST_NAME, null)
+        val songName = preferences.getString(SONG_NAME, null)
+        if (path != null) {
+            SHOW_MINI_PLAYER = true
+            PATH_TO_FRAG = path
+            ARTIST_NAME_TO_FRAG = artist
+            SONG_NAME_TO_FRAG = songName
+        } else {
+            SHOW_MINI_PLAYER = false
+            PATH_TO_FRAG = null
+            ARTIST_NAME_TO_FRAG = null
+            SONG_NAME_TO_FRAG = null
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (PlayerActivity.musicService != null && !PlayerActivity.musicService.isPlaying) {
+            PlayerActivity.musicService.stopForeground(true)
+            PlayerActivity.musicService.release()
+            PlayerActivity.musicService = null
+            System.exit(0)
+        }
+    }
+
+    class ViewPagerAdapter(fm: FragmentManager) : FragmentPagerAdapter(fm) {
+        private val fragments = arrayListOf<Fragment>()
+        private val titles = arrayListOf<String>()
+
+        fun addFragments(fragment: Fragment, title: String) {
+            fragments.add(fragment)
+            titles.add(title)
+        }
+
+        override fun getItem(position: Int): Fragment = fragments[position]
+
+        override fun getCount(): Int = fragments.size
+
+        override fun getPageTitle(position: Int): CharSequence = titles[position]
+    }
+
+    companion object {
+        const val REQUEST_CODE = 1
+        @JvmField
+        var musicFiles: ArrayList<MusicFiles>? = null
+        @JvmField
+        var shuffleBoolean = false
+        @JvmField
+        var repeatBoolean = false
+        @JvmField
+        var albums: ArrayList<MusicFiles> = ArrayList()
+
+        const val MUSIC_LAST_PLAYED = "LAST_PLAYED"
+        const val MUSIC_FILE = "STORED_MUSIC"
+        const val ARTIST_NAME = "ARTIST_NAME"
+        const val SONG_NAME = "SONG_NAME"
+
+        @JvmField
+        var SHOW_MINI_PLAYER = false
+
+        @JvmField
+        var PATH_TO_FRAG: String? = null
+
+        @JvmField
+        var SONG_NAME_TO_FRAG: String? = null
+
+        @JvmField
+        var ARTIST_NAME_TO_FRAG: String? = null
+
+        @JvmField
+        var frag_bottom_player: FrameLayout? = null
     }
 }
