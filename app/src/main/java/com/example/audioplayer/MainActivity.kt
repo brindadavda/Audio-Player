@@ -10,9 +10,18 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.FrameLayout
 import android.widget.SearchView
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -29,14 +38,68 @@ class MainActivity : AppCompatActivity(), SearchView.OnQueryTextListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        frag_bottom_player = findViewById(R.id.frag_bottom_player)
-        frag_bottom_player?.setOnClickListener {
-            startActivity(Intent(applicationContext, PlayerActivity::class.java))
+        setContent {
+            MainScreen(
+                onMiniPlayerClick = { startActivity(Intent(applicationContext, PlayerActivity::class.java)) }
+            )
         }
-
         permission()
+    }
+
+    @Composable
+    private fun MainScreen(onMiniPlayerClick: () -> Unit) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                factory = { context ->
+                    TabLayout(context).apply {
+                        id = R.id.tab_layout1
+                        setBackgroundColor(ContextCompat.getColor(context, R.color.black))
+                        setSelectedTabIndicatorColor(ContextCompat.getColor(context, R.color.white))
+                        setTabTextColors(
+                            ContextCompat.getColor(context, R.color.white),
+                            ContextCompat.getColor(context, R.color.black)
+                        )
+                        setSelectedTabIndicatorHeight(resources.getDimensionPixelSize(R.dimen.tab_indicator_height))
+                    }
+                }
+            )
+
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                factory = { context -> ViewPager(context).apply { id = R.id.viewpager } }
+            )
+
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                factory = { context ->
+                    FrameLayout(context).apply {
+                        id = R.id.frag_bottom_player
+                        visibility = View.GONE
+                        setOnClickListener { onMiniPlayerClick() }
+                    }
+                },
+                update = { frameLayout ->
+                    frag_bottom_player = frameLayout
+                    attachBottomFragmentIfNeeded(frameLayout.id)
+                }
+            )
+        }
+    }
+
+    private fun attachBottomFragmentIfNeeded(containerId: Int) {
+        val existing = supportFragmentManager.findFragmentByTag("now_playing_bottom")
+        if (existing == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(containerId, NowPlayingBottomFragment(), "now_playing_bottom")
+                .commitNowAllowingStateLoss()
+        }
     }
 
     private fun permission() {
