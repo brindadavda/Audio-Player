@@ -8,6 +8,7 @@ import static com.example.audioplayer.PlayerActivity.listsongs;
 import static com.example.audioplayer.PlayerActivity.musicService;
 import static com.example.audioplayer.PlayerActivity.time;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -35,6 +36,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class MusicService extends Service implements MediaPlayer.OnCompletionListener {
@@ -197,7 +199,8 @@ public class MusicService extends Service implements MediaPlayer.OnCompletionLis
         this.actionPlaying = actionPlaying;
     }
 
-    void showNotification(int PlayPauseBtn,float playbackspeed)
+    @SuppressLint("ForegroundServiceType")
+    void showNotification(int PlayPauseBtn, float playbackspeed)
     {
 
         Intent intent = new Intent(this , PlayerActivity.class);
@@ -289,7 +292,11 @@ public class MusicService extends Service implements MediaPlayer.OnCompletionLis
         MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
         mediaMetadataRetriever.setDataSource(uri);
         byte[] art =mediaMetadataRetriever.getEmbeddedPicture();
-        mediaMetadataRetriever.release();
+        try {
+            mediaMetadataRetriever.release();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return art;
     }
 

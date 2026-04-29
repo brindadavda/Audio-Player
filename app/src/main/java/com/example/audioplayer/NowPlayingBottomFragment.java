@@ -42,6 +42,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.w3c.dom.Text;
 
+import java.io.IOException;
+
 
 public class NowPlayingBottomFragment extends Fragment implements ServiceConnection {
 
@@ -285,7 +287,11 @@ public class NowPlayingBottomFragment extends Fragment implements ServiceConnect
         MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
         mediaMetadataRetriever.setDataSource(uri);
         byte[] art =mediaMetadataRetriever.getEmbeddedPicture();
-        mediaMetadataRetriever.release();
+        try {
+            mediaMetadataRetriever.release();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return art;
     }
 

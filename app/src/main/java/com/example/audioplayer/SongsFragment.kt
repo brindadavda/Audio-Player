@@ -34,7 +34,6 @@ class SongsFragment : Fragment() {
     }
 
     companion object {
-        @JvmField
         lateinit var musicAdapter: MusicAdapter
     }
 }
