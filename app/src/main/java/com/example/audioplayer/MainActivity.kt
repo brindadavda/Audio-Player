@@ -213,7 +213,7 @@ class MainActivity : AppCompatActivity(), SearchView.OnQueryTextListener {
                 myFiles.add(song)
             }
         }
-        SongsFragment.musicAdapter.updateList(myFiles)
+        SongsFragment.applySearch(myFiles)
         return true
     }
 
